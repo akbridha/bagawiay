@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Bar</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Time Bar (7:00 - 17:00)</h1>
+        <div class="bar-container">
+            <div class="bar">
+                <div class="lunch-indicator"></div>
+            </div>
+            <div class="time-labels">
+                <!-- Time labels will be added here by JavaScript -->
+            </div>
+            <div class="point" id="point1"></div>
+            <div class="point" id="point2"></div>
+            <div class="point" id="point3"></div>
+        </div>
+        <div class="value-display">
+            <div>Point 1: <span id="value1">7:00</span></div>
+            <div>Point 2: <span id="value2">12:00</span></div>
+            <div>Point 3: <span id="value3">17:00</span></div>
+        </div>
+    </div>
+    
+    <!-- New Card with Table -->
+    <div class="container card-secondary">
+        <h2>Time Details</h2>
+        <div class="card-content">
+            <table id="details-table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Problem</th>
+                        <th>Solution</th>
+                        <th>Time Range</th>
+                        <th>Duration (min)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Table rows will be dynamically generated -->
+                </tbody>
+            </table>
+        </div>
+        <div class="controls">
+            <button id="add-point" class="btn">Add Point</button>
+            <button id="remove-point" class="btn">Remove Point</button>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html> 

@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Add to value display
         const newValueElement = document.createElement('div');
-        newValueElement.innerHTML = `Point ${points.length}: <span id="value${points.length}"></span>`;
+        newValueElement.innerHTML = `Sesi ${points.length}: <span id="value${points.length}"></span>`;
         newValueElement.style.color = `hsl(${hue}, 70%, 60%)`;
         valueDisplay.appendChild(newValueElement);
         
@@ -292,8 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Problem cell with input
             const cellProblem = document.createElement('td');
-            const problemInput = document.createElement('input');
-            problemInput.type = 'text';
+            const problemInput = document.createElement('textarea');
             problemInput.placeholder = 'Enter problem';
             problemInput.value = pointsData[pointIndex].problem || '';
             problemInput.addEventListener('input', (e) => {
@@ -304,8 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Solution cell with input
             const cellSolution = document.createElement('td');
-            const solutionInput = document.createElement('input');
-            solutionInput.type = 'text';
+            const solutionInput = document.createElement('textarea');
             solutionInput.placeholder = 'Enter solution';
             solutionInput.value = pointsData[pointIndex].solution || '';
             solutionInput.addEventListener('input', (e) => {
@@ -321,7 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Duration cell
             const cellDuration = document.createElement('td');
-            cellDuration.textContent = `${durationMinutes}`;
+            const durationFormatted = formatMinutesToTime(durationMinutes);
+            cellDuration.textContent = durationFormatted;
             row.appendChild(cellDuration);
             
             // Add row to table
@@ -341,4 +340,29 @@ document.addEventListener('DOMContentLoaded', () => {
         document.removeEventListener('touchmove', handleTouchMove);
         document.removeEventListener('touchend', handleTouchEnd);
     }
+
+    // Function to format minutes to HH:MM
+    function formatMinutesToTime(minutes) {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    }
+
+    // Function to convert time string (HH:MM) to minutes
+    function timeStringToMinutes(timeString) {
+        const [hours, minutes] = timeString.split(':').map(Number);
+        return hours * 60 + minutes;
+    }
+
+    // Function to get duration between two time strings
+    function getDurationBetweenTimes(startTime, endTime) {
+        const startMinutes = timeStringToMinutes(startTime);
+        const endMinutes = timeStringToMinutes(endTime);
+        return endMinutes - startMinutes;
+    }
+
+    // Example usage:
+    // formatMinutesToTime(90) returns "01:30"
+    // timeStringToMinutes("01:30") returns 90
+    // getDurationBetweenTimes("09:00", "10:30") returns 90
 }); 

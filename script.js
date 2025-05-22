@@ -257,8 +257,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextStop = colorStops[i + 1];
             
             // Calculate the width and position for this color section
-            const startPos = currentStop.position;
-            const endPos = nextStop ? nextStop.position : 100;
+            const startPos = i === 0 ? 0 : colorStops[i - 1].position; // Start from previous point's position
+            const endPos = currentStop.position; // End at current point's position
             const width = endPos - startPos;
             
             // Create a new div for this color section
@@ -281,18 +281,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const valueEl = document.getElementById(`value${index + 1}`);
             if (!valueEl) return;
             
-            const leftValue = parseFloat(point.style.left || getComputedStyle(point).left);
-            const percentage = Math.max(0, Math.min(100, parseFloat(leftValue)));
+            // Calculate duration for all points
+            const currentPoint = point;
+            const currentLeft = parseFloat(currentPoint.style.left || getComputedStyle(currentPoint).left);
+            const currentPercentage = Math.max(0, Math.min(100, parseFloat(currentLeft)));
+            const currentTime = MIN_HOUR + (currentPercentage / 100 * HOUR_RANGE);
             
-            // Convert to time
-            const timeValue = MIN_HOUR + (percentage / 100 * HOUR_RANGE);
+            let durationMinutes;
+            if (index === 0) {
+                // For first point, calculate duration from 7:00
+                durationMinutes = Math.round((currentTime - MIN_HOUR) * 60);
+            } else {
+                // For other points, calculate duration from previous point
+                const previousPoint = points[index - 1];
+                const previousLeft = parseFloat(previousPoint.style.left || getComputedStyle(previousPoint).left);
+                const previousPercentage = Math.max(0, Math.min(100, parseFloat(previousLeft)));
+                const previousTime = MIN_HOUR + (previousPercentage / 100 * HOUR_RANGE);
+                durationMinutes = Math.round((currentTime - previousTime) * 60);
+            }
             
-            // Format time
-            const hours = Math.floor(timeValue);
-            const minutes = Math.round((timeValue - hours) * 60);
-            const formattedTime = `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
-            
-            valueEl.textContent = formattedTime;
+            valueEl.textContent = formatMinutesToTime(durationMinutes);
         });
     }
     
@@ -303,45 +311,35 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Get point positions and convert to time values
         const pointTimes = points.map(point => {
-            const leftValue = parseFloat(point.style.left || getComputedStyle(point).left);
-            const percentage = Math.max(0, Math.min(100, parseFloat(leftValue)));
-            return MIN_HOUR + (percentage / 100 * HOUR_RANGE);
-        });
+            const valueEl = document.getElementById(`value${points.indexOf(point) + 1}`);
+            if (!valueEl) return null;
+            return valueEl.textContent; // Get the actual time value
+        }).filter(time => time !== null); // Remove any null values
         
-        // Sort points by position (left to right)
+        // Sort points by time
         const sortedIndices = pointTimes
             .map((time, index) => ({ time, index }))
-            .sort((a, b) => a.time - b.time)
+            .sort((a, b) => {
+                const [hoursA, minutesA] = a.time.split(':').map(Number);
+                const [hoursB, minutesB] = b.time.split(':').map(Number);
+                return (hoursA * 60 + minutesA) - (hoursB * 60 + minutesB);
+            })
             .map(item => item.index);
         
         // Create table rows for each point
         sortedIndices.forEach((pointIndex, index) => {
-            if (index === 0) return; // Skip first point (only use as start reference)
-            
             const currentTime = pointTimes[pointIndex];
-            const previousTime = pointTimes[sortedIndices[index - 1]];
+            const previousTime = index === 0 ? '07:00' : pointTimes[sortedIndices[index - 1]];
             
             // Calculate duration in minutes
-            const durationHours = currentTime - previousTime;
-            const durationMinutes = Math.round(durationHours * 60);
-            
-            // Format times
-            const formatTime = (time) => {
-                const hours = Math.floor(time);
-                const minutes = Math.round((time - hours) * 60);
-                return `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
-            };
-            
-            const startTimeFormatted = formatTime(previousTime);
-            const endTimeFormatted = formatTime(currentTime);
-            const timeRange = `${startTimeFormatted} - ${endTimeFormatted}`;
+            const durationMinutes = getDurationBetweenTimes(previousTime, currentTime);
             
             // Create table row
             const row = document.createElement('tr');
             
             // Row number
             const cellNo = document.createElement('td');
-            cellNo.textContent = index;
+            cellNo.textContent = index + 1;
             row.appendChild(cellNo);
             
             // Problem cell with input
@@ -368,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Time range cell
             const cellTimeRange = document.createElement('td');
-            cellTimeRange.textContent = timeRange;
+            cellTimeRange.textContent = `${previousTime} - ${currentTime}`;
             row.appendChild(cellTimeRange);
             
             // Duration cell

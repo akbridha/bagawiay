@@ -94,6 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
             addPointEventListeners(point, index);
         });
         
+        // Update bar color
+        updateBarColor();
+        
         // Update value display
         updateValueDisplay();
     }
@@ -165,6 +168,9 @@ document.addEventListener('DOMContentLoaded', () => {
         newValueElement.style.color = `hsl(${hue}, 70%, 60%)`;
         valueDisplay.appendChild(newValueElement);
         
+        // Update bar color
+        updateBarColor();
+        
         // Update display
         updateValueDisplay();
         updateTable();
@@ -181,6 +187,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Remove from arrays
         points.pop();
         pointsData.pop();
+        
+        // Update bar color
+        updateBarColor();
         
         // Update display
         updateTable();
@@ -216,9 +225,54 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update point position
         activePoint.element.style.left = `${percentage}%`;
         
+        // Update bar color based on rightmost point
+        updateBarColor();
+        
         // Update display
         updateValueDisplay();
         updateTable();
+    }
+    
+    // Function to update bar color based on dominant point
+    function updateBarColor() {
+        const bar = document.querySelector('.bar');
+        
+        // Remove any existing color sections
+        const existingSections = bar.querySelectorAll('.color-section');
+        existingSections.forEach(section => section.remove());
+        
+        // Create color stops based on point positions
+        const colorStops = points.map(point => {
+            const position = parseFloat(point.style.left || getComputedStyle(point).left);
+            const color = getComputedStyle(point).backgroundColor;
+            return {
+                position: position,
+                color: color
+            };
+        }).sort((a, b) => a.position - b.position);
+
+        // Create color sections
+        for (let i = 0; i < colorStops.length; i++) {
+            const currentStop = colorStops[i];
+            const nextStop = colorStops[i + 1];
+            
+            // Calculate the width and position for this color section
+            const startPos = currentStop.position;
+            const endPos = nextStop ? nextStop.position : 100;
+            const width = endPos - startPos;
+            
+            // Create a new div for this color section
+            const section = document.createElement('div');
+            section.className = 'color-section';
+            section.style.position = 'absolute';
+            section.style.left = `${startPos}%`;
+            section.style.width = `${width}%`;
+            section.style.height = '100%';
+            section.style.backgroundColor = currentStop.color;
+            
+            // Add the section to the bar
+            bar.appendChild(section);
+        }
     }
     
     // Update the value display

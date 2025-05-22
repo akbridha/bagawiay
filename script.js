@@ -313,28 +313,44 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Get point positions and convert to time values
         const pointTimes = points.map(point => {
-            const valueEl = document.getElementById(`value${points.indexOf(point) + 1}`);
-            if (!valueEl) return null;
-            return valueEl.textContent; // Get the actual time value
-        }).filter(time => time !== null); // Remove any null values
+            const leftValue = parseFloat(point.style.left || getComputedStyle(point).left);
+            const percentage = Math.max(0, Math.min(100, parseFloat(leftValue)));
+            return MIN_HOUR + (percentage / 100 * HOUR_RANGE);
+        });
         
-        // Sort points by time
+        // Sort points by position (left to right)
         const sortedIndices = pointTimes
             .map((time, index) => ({ time, index }))
-            .sort((a, b) => {
-                const [hoursA, minutesA] = a.time.split(':').map(Number);
-                const [hoursB, minutesB] = b.time.split(':').map(Number);
-                return (hoursA * 60 + minutesA) - (hoursB * 60 + minutesB);
-            })
+            .sort((a, b) => a.time - b.time)
             .map(item => item.index);
         
         // Create table rows for each point
         sortedIndices.forEach((pointIndex, index) => {
-            const currentTime = pointTimes[pointIndex];
-            const previousTime = index === 0 ? '07:00' : pointTimes[sortedIndices[index - 1]];
+            const currentPoint = points[pointIndex];
+            const currentLeft = parseFloat(currentPoint.style.left || getComputedStyle(currentPoint).left);
+            const currentPercentage = Math.max(0, Math.min(100, parseFloat(currentLeft)));
+            const currentTime = MIN_HOUR + (currentPercentage / 100 * HOUR_RANGE);
             
-            // Calculate duration in minutes
-            const durationMinutes = getDurationBetweenTimes(previousTime, currentTime);
+            // Format time for display
+            const formatTime = (time) => {
+                const hours = Math.floor(time);
+                const minutes = Math.round((time - hours) * 60);
+                return `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
+            };
+            
+            // Calculate duration using the same method as updateValueDisplay
+            let durationMinutes;
+            if (index === 0) {
+                // For first point, calculate duration from 7:00
+                durationMinutes = Math.round((currentTime - MIN_HOUR) * 60);
+            } else {
+                // For other points, calculate duration from previous point
+                const previousPoint = points[sortedIndices[index - 1]];
+                const previousLeft = parseFloat(previousPoint.style.left || getComputedStyle(previousPoint).left);
+                const previousPercentage = Math.max(0, Math.min(100, parseFloat(previousLeft)));
+                const previousTime = MIN_HOUR + (previousPercentage / 100 * HOUR_RANGE);
+                durationMinutes = Math.round((currentTime - previousTime) * 60);
+            }
             
             // Create table row
             const row = document.createElement('tr');
@@ -368,7 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Time range cell
             const cellTimeRange = document.createElement('td');
-            cellTimeRange.textContent = `${previousTime} - ${currentTime}`;
+            const startTime = index === 0 ? '07:00' : formatTime(pointTimes[sortedIndices[index - 1]]);
+            const endTime = formatTime(currentTime);
+            cellTimeRange.textContent = `${startTime} - ${endTime}`;
             row.appendChild(cellTimeRange);
             
             // Duration cell

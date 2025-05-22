@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.getElementById('table-body');
     const addPointBtn = document.getElementById('add-point');
     const removePointBtn = document.getElementById('remove-point');
+    const exportDataBtn = document.getElementById('export-data');
     const timeLabelsContainer = document.querySelector('.time-labels');
     
     // Time range constants (7:00 - 17:00)
@@ -26,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add event listeners for buttons
     addPointBtn.addEventListener('click', addPoint);
     removePointBtn.addEventListener('click', removePoint);
+    exportDataBtn.addEventListener('click', exportData);
     
     // Function to create time labels
     function createTimeLabels() {
@@ -411,6 +413,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const startMinutes = timeStringToMinutes(startTime);
         const endMinutes = timeStringToMinutes(endTime);
         return endMinutes - startMinutes;
+    }
+
+    // Function to export data to clipboard
+    function exportData() {
+        // Get all table rows
+        const rows = tableBody.getElementsByTagName('tr');
+        let exportText = '';
+
+        // Add header
+        exportText += 'No\tProblem\tSolution\tTime Range\tDuration\n';
+
+        // Add each row's data
+        Array.from(rows).forEach(row => {
+            const cells = row.getElementsByTagName('td');
+            const rowData = Array.from(cells).map(cell => {
+                // For problem and solution cells, get the textarea value
+                if (cell.querySelector('textarea')) {
+                    return cell.querySelector('textarea').value;
+                }
+                return cell.textContent;
+            });
+            exportText += rowData.join('\t') + '\n';
+        });
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(exportText).then(() => {
+            // Show success message
+            const originalText = exportDataBtn.textContent;
+            exportDataBtn.textContent = 'Copied!';
+            exportDataBtn.style.backgroundColor = '#2ecc71';
+            
+            // Reset button after 2 seconds
+            setTimeout(() => {
+                exportDataBtn.textContent = originalText;
+                exportDataBtn.style.backgroundColor = '';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            alert('Failed to copy data to clipboard');
+        });
     }
 
     // Example usage:

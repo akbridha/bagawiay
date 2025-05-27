@@ -358,6 +358,28 @@ document.addEventListener('DOMContentLoaded', () => {
             // Row number
             const cellNo = document.createElement('td');
             cellNo.textContent = index + 1;
+            cellNo.style.cursor = 'pointer'; // Add pointer cursor to indicate clickable
+            
+            // Variable to track row color state
+            let isRed = false;
+            
+            cellNo.addEventListener('click', () => {
+                // Toggle between red and black
+                isRed = !isRed;
+                const newColor = isRed ? 'red' : 'black';
+                
+                // Get all cells in the row
+                const allCells = row.getElementsByTagName('td');
+                // Change color of each cell
+                Array.from(allCells).forEach(cell => {
+                    cell.style.color = newColor;
+                    // If the cell contains a textarea, also change its color
+                    const textarea = cell.querySelector('textarea');
+                    if (textarea) {
+                        textarea.style.color = newColor;
+                    }
+                });
+            });
             row.appendChild(cellNo);
             
             // Problem cell with input

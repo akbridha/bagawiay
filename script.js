@@ -8,13 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportDataBtn = document.getElementById('export-data');
     const timeLabelsContainer = document.querySelector('.time-labels');
     
-    // Time range constants (7:00 - 17:00)
+    // Time range constants (7:00 - 17:30)
     const MIN_HOUR = 7;
-    const MAX_HOUR = 17;
+    const MAX_HOUR = 17.5;
     const HOUR_RANGE = MAX_HOUR - MIN_HOUR;
     
     let points = [];
     let pointsData = []; // Will store problem and solution data
+    let redRowStates = {}; // Will store which rows are red
     let activePoint = null;
     let offsetX = 0;
     let pointCounter = 3; // Start with 3 points
@@ -35,14 +36,19 @@ document.addEventListener('DOMContentLoaded', () => {
         timeLabelsContainer.innerHTML = '';
         
         // Create a label for each hour and half hour
-        for (let hour = MIN_HOUR; hour <= MAX_HOUR; hour++) {
+        for (let hour = MIN_HOUR; hour <= Math.floor(MAX_HOUR); hour++) {
             // Full hour label
             addTimeLabel(hour, 0);
             
-            // Half hour label (except for the last hour)
-            if (hour < MAX_HOUR) {
+            // Half hour label (except for the last hour if MAX_HOUR is not a half hour)
+            if (hour < Math.floor(MAX_HOUR) || (MAX_HOUR % 1 === 0.5)) {
                 addTimeLabel(hour, 30);
             }
+        }
+        
+        // Add final label if MAX_HOUR ends at 30 minutes
+        if (MAX_HOUR % 1 === 0.5) {
+            addTimeLabel(Math.floor(MAX_HOUR), 30);
         }
     }
     
@@ -88,8 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Set initial positions
         points[0].style.left = '0%';      // 7:00
-        points[1].style.left = '50%';     // 12:00
-        points[2].style.left = '100%';    // 17:00
+        points[1].style.left = '50%';     // 12:15
+        points[2].style.left = '100%';    // 17:30
         
         // Add event listeners to points
         points.forEach((point, index) => {
@@ -182,6 +188,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function removePoint() {
         if (points.length <= 2) return; // Keep at least 2 points
         
+        // Get the point index that will be removed
+        const removedPointIndex = points.length - 1;
+        
         // Remove from DOM
         barContainer.removeChild(points[points.length - 1]);
         valueDisplay.removeChild(valueDisplay.lastChild);
@@ -189,6 +198,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Remove from arrays
         points.pop();
         pointsData.pop();
+        
+        // Clean up red row state for removed point
+        delete redRowStates[removedPointIndex];
         
         // Update bar color
         updateBarColor();
@@ -287,21 +299,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentPoint = point;
             const currentLeft = parseFloat(currentPoint.style.left || getComputedStyle(currentPoint).left);
             const currentPercentage = Math.max(0, Math.min(100, parseFloat(currentLeft)));
-            const currentTime = MIN_HOUR + (currentPercentage / 100 * HOUR_RANGE);
+            
+            // Convert to time
+            const timeValue = MIN_HOUR + (currentPercentage / 100 * HOUR_RANGE);
             
             let durationMinutes;
             if (index === 0) {
                 // For first point, calculate duration from 7:00
-                durationMinutes = Math.round((currentTime - MIN_HOUR) * 60);
+                durationMinutes = Math.round((timeValue - MIN_HOUR) * 60);
             } else {
                 // For other points, calculate duration from previous point
                 const previousPoint = points[index - 1];
                 const previousLeft = parseFloat(previousPoint.style.left || getComputedStyle(previousPoint).left);
                 const previousPercentage = Math.max(0, Math.min(100, parseFloat(previousLeft)));
                 const previousTime = MIN_HOUR + (previousPercentage / 100 * HOUR_RANGE);
-                durationMinutes = Math.round((currentTime - previousTime) * 60);
+                durationMinutes = Math.round((timeValue - previousTime) * 60);
             }
             
+            // Format duration to HH:MM
             valueEl.textContent = formatMinutesToTime(durationMinutes);
         });
     }
@@ -333,8 +348,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Format time for display
             const formatTime = (time) => {
-                const hours = Math.floor(time);
-                const minutes = Math.round((time - hours) * 60);
+                let hours = Math.floor(time);
+                let minutes = Math.round((time - hours) * 60);
+                
+                // Handle case where rounding might cause 60 minutes
+                if (minutes >= 60) {
+                    hours += Math.floor(minutes / 60);
+                    minutes = minutes % 60;
+                }
+                
                 return `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
             };
             
@@ -360,13 +382,13 @@ document.addEventListener('DOMContentLoaded', () => {
             cellNo.textContent = index + 1;
             cellNo.style.cursor = 'pointer'; // Add pointer cursor to indicate clickable
             
-            // Variable to track row color state
-            let isRed = false;
+            // Check if this row should be red based on pointIndex
+            const isRowRed = redRowStates[pointIndex] || false;
             
             cellNo.addEventListener('click', () => {
-                // Toggle between red and black
-                isRed = !isRed;
-                const newColor = isRed ? 'red' : 'black';
+                // Toggle the red state for this specific pointIndex
+                redRowStates[pointIndex] = !redRowStates[pointIndex];
+                const newColor = redRowStates[pointIndex] ? 'red' : 'black';
                 
                 // Get all cells in the row
                 const allCells = row.getElementsByTagName('td');
@@ -380,6 +402,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             });
+            
+            // Apply the saved red state if it exists
+            if (isRowRed) {
+                // Get all cells in the row and apply red color
+                setTimeout(() => {
+                    const allCells = row.getElementsByTagName('td');
+                    Array.from(allCells).forEach(cell => {
+                        cell.style.color = 'red';
+                        const textarea = cell.querySelector('textarea');
+                        if (textarea) {
+                            textarea.style.color = 'red';
+                        }
+                    });
+                }, 0);
+            }
+            
             row.appendChild(cellNo);
             
             // Problem cell with input
@@ -437,8 +475,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to format minutes to HH:MM
     function formatMinutesToTime(minutes) {
-        const hours = Math.floor(minutes / 60);
-        const mins = minutes % 60;
+        let hours = Math.floor(minutes / 60);
+        let mins = minutes % 60;
+        
+        // Handle case where rounding might cause 60 minutes
+        if (mins >= 60) {
+            hours += Math.floor(mins / 60);
+            mins = mins % 60;
+        }
+        
         return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
     }
 

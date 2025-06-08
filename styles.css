@@ -65,7 +65,9 @@ h2 {
     background-image: 
         linear-gradient(to right, #333 1px, transparent 1px), /* Hour markers */
         linear-gradient(to right, #999 1px, transparent 1px); /* Half-hour markers */
-    background-size: 10% 100%, 5% 60%;
+    background-size: 
+        calc(100% / 10.5) 100%,     /* Hour markers: 100% ÷ 10.5 hours = 9.5238% */
+        calc(100% / 21) 60%;        /* Half-hour markers: 100% ÷ 21 half-hours = 4.7619% */
     background-repeat: repeat-x;
 }
 
@@ -96,8 +98,8 @@ h2 {
 .bar .lunch-indicator {
     position: absolute;
     top: -35px;
-    left: 50%; /* 12:00 position */
-    width: 10%; /* Covers 12:00-13:00 */
+    left: calc(5 * 100% / 10.5); /* 12:00 position: 5 hours from 7:00 in 10.5 hour range */
+    width: calc(100% / 10.5);     /* Covers 1 hour (12:00-13:00) in 10.5 hour range */
     height: 35px;
     background-color: rgba(255, 193, 7, 0.2);
     border: 1px dashed #FFC107;
@@ -139,7 +141,7 @@ h2 {
 }
 
 #point2 {
-    left: 50%;
+    left: 50%; /* 12:15 in 7:00-17:30 range */
     background-color: #f39c12;
 }
 
@@ -261,6 +263,16 @@ td input:focus, td textarea:focus {
     background-color: #c0392b;
 }
 
+.btn-tip {
+    background-color: #9b59b6;
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+.btn-tip:hover {
+    background-color: #8e44ad;
+}
+
 .info-row {
     display: flex;
     justify-content: space-between;
@@ -278,6 +290,142 @@ td input:focus, td textarea:focus {
 }
 
 .info-value {
-    color: #3498db;
     font-weight: bold;
+    color: #333;
+}
+
+/* Balloon popup notification styles */
+.notification-balloon {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 
+        0 8px 25px rgba(0, 0, 0, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+    z-index: 1000;
+    max-width: 320px;
+    text-align: center;
+    opacity: 0;
+    transform: translateX(100%) scale(0.8) rotate(5deg);
+    transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    animation: float 3s ease-in-out infinite alternate;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Balloon tail */
+.notification-balloon::before {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #667eea;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Show animation */
+.notification-balloon.show {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+    animation: 
+        float 3s ease-in-out infinite alternate,
+        pulse-glow 2s ease-in-out infinite;
+}
+
+/* Hide animation */
+.notification-balloon.hide {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8) rotate(-5deg);
+}
+
+/* Enhanced floating animation */
+@keyframes float {
+    0% {
+        transform: translateX(0) translateY(0) scale(1) rotate(0deg);
+    }
+    100% {
+        transform: translateX(0) translateY(-8px) scale(1.02) rotate(1deg);
+    }
+}
+
+/* Pulse glow effect */
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 
+            0 8px 25px rgba(0, 0, 0, 0.2),
+            0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+    50% {
+        box-shadow: 
+            0 8px 35px rgba(0, 0, 0, 0.3),
+            0 0 0 1px rgba(255, 255, 255, 0.2),
+            0 0 20px rgba(102, 126, 234, 0.3);
+    }
+}
+
+/* Icon styling */
+.notification-balloon .icon {
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 18px;
+    animation: wave 1s ease-in-out infinite;
+}
+
+/* Wave animation for icon */
+@keyframes wave {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-10deg); }
+    75% { transform: rotate(10deg); }
+}
+
+/* Responsive design for notification */
+@media (max-width: 768px) {
+    .notification-balloon {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        font-size: 13px;
+        padding: 12px 16px;
+        transform: translateY(-100%) scale(0.8);
+    }
+    
+    .notification-balloon.show {
+        transform: translateY(0) scale(1);
+    }
+    
+    .notification-balloon.hide {
+        transform: translateY(-100%) scale(0.8);
+    }
+}
+
+/* Lunch break icon styling */
+.lunch-icon-cell {
+    transition: all 0.3s ease;
+}
+
+.lunch-icon-cell:hover {
+    background-color: rgba(255, 193, 7, 0.2) !important;
+    transform: scale(1.1);
+}
+
+.lunch-icon-active {
+    background-color: rgba(255, 193, 7, 0.2);
+    border-radius: 4px;
+}
+
+/* Table cell transitions */
+td {
+    transition: all 0.3s ease;
 } 

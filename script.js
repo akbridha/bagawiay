@@ -96,21 +96,19 @@ document.addEventListener('DOMContentLoaded', () => {
             solution: ''
         }));
         
-        // Set initial positions
+        // Set initial positions with explicit values
         points[0].style.left = '0%';      // 7:00
         points[1].style.left = '50%';     // 12:15 (5.25 hours from 7:00 = 50% of 10.5 hours)
         points[2].style.left = '100%';    // 17:30
+        
+        // Update displays
+        updateBarColor();
+        updateValueDisplay();
         
         // Add event listeners to points
         points.forEach((point, index) => {
             addPointEventListeners(point, index);
         });
-        
-        // Update bar color
-        updateBarColor();
-        
-        // Update value display
-        updateValueDisplay();
     }
     
     // Function to add event listeners to a point
@@ -269,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Create color stops based on point positions
         const colorStops = points.map(point => {
-            const position = parseFloat(point.style.left || getComputedStyle(point).left);
+            const position = getPointPercentage(point);
             const color = getComputedStyle(point).backgroundColor;
             return {
                 position: position,
@@ -333,16 +331,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Helper function to get point position as percentage
+    function getPointPercentage(point) {
+        let percentage = 0;
+        
+        // Try to get from style.left first (this should be in %)
+        if (point.style.left && point.style.left.includes('%')) {
+            percentage = parseFloat(point.style.left);
+        } else {
+            // Fallback: calculate from computed position
+            const computedLeft = getComputedStyle(point).left;
+            const container = point.parentElement;
+            
+            if (computedLeft && container) {
+                const leftPx = parseFloat(computedLeft);
+                const containerWidth = container.getBoundingClientRect().width;
+                percentage = (leftPx / containerWidth) * 100;
+            }
+        }
+        
+        // Ensure percentage is within bounds
+        return Math.max(0, Math.min(100, percentage));
+    }
+
     // Update the table
     function updateTable() {
         // Clear table
         tableBody.innerHTML = '';
         
         // Get point positions and convert to time values
-        const pointTimes = points.map(point => {
-            const leftValue = parseFloat(point.style.left || getComputedStyle(point).left);
-            const percentage = Math.max(0, Math.min(100, parseFloat(leftValue)));
-            return MIN_HOUR + (percentage / 100 * HOUR_RANGE);
+        const pointTimes = points.map((point, index) => {
+            const percentage = getPointPercentage(point);
+            const timeValue = MIN_HOUR + (percentage / 100 * HOUR_RANGE);
+            
+
+            
+            // Validate time value
+            if (isNaN(timeValue)) {
+                console.warn('Invalid time value calculated for point:', point);
+                return MIN_HOUR; // Return default time
+            }
+            
+            return timeValue;
         });
         
         // Sort points by position (left to right)
@@ -350,26 +380,37 @@ document.addEventListener('DOMContentLoaded', () => {
             .map((time, index) => ({ time, index }))
             .sort((a, b) => a.time - b.time)
             .map(item => item.index);
+            
+
         
         // Create table rows for each point
         sortedIndices.forEach((pointIndex, index) => {
             const currentPoint = points[pointIndex];
-            const currentLeft = parseFloat(currentPoint.style.left || getComputedStyle(currentPoint).left);
-            const currentPercentage = Math.max(0, Math.min(100, parseFloat(currentLeft)));
+            const currentPercentage = getPointPercentage(currentPoint);
             const currentTime = MIN_HOUR + (currentPercentage / 100 * HOUR_RANGE);
             
             // Format time for display
             const formatTime = (time) => {
+                // Validate input
+                if (time === undefined || time === null || isNaN(time)) {
+                    console.warn('formatTime received invalid input:', time);
+                    return '07:00'; // Return default time
+                }
                 let hours = Math.floor(time);
                 let minutes = Math.round((time - hours) * 60);
-                
                 // Handle case where rounding might cause 60 minutes
                 if (minutes >= 60) {
                     hours += Math.floor(minutes / 60);
                     minutes = minutes % 60;
                 }
-                
-                return `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
+                // Ensure valid time range
+                if (hours < 7) hours = 7;
+                if (hours > 17 || (hours === 17 && minutes > 30)) {
+                    hours = 17;
+                    minutes = 30;
+                }
+                // PENTING: dua digit!
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
             };
             
             // Calculate duration using the same method as updateValueDisplay
@@ -379,11 +420,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 durationMinutes = Math.round((currentTime - MIN_HOUR) * 60);
             } else {
                 // For other points, calculate duration from previous point
-                const previousPoint = points[sortedIndices[index - 1]];
-                const previousLeft = parseFloat(previousPoint.style.left || getComputedStyle(previousPoint).left);
-                const previousPercentage = Math.max(0, Math.min(100, parseFloat(previousLeft)));
-                const previousTime = MIN_HOUR + (previousPercentage / 100 * HOUR_RANGE);
-                durationMinutes = Math.round((currentTime - previousTime) * 60);
+                const previousPointIndex = sortedIndices[index - 1];
+                if (previousPointIndex !== undefined) {
+                    const previousPoint = points[previousPointIndex];
+                    if (previousPoint) {
+                        const previousLeft = parseFloat(previousPoint.style.left || '0');
+                        const previousPercentage = Math.max(0, Math.min(100, previousLeft));
+                        const previousTime = MIN_HOUR + (previousPercentage / 100 * HOUR_RANGE);
+                        durationMinutes = Math.round((currentTime - previousTime) * 60);
+                    }
+                }
             }
             
             // Create table row
@@ -480,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isLunchBreakRow = lunchBreakStates[pointIndex] || false;
             
             if (isLunchBreakRow) {
-                // If lunch break, show 12:00-13:00
+                // If lunch break, show 12:00-13:00 as non-editable text
                 cellTimeRange.textContent = '12:00 - 13:00';
                 cellTimeRange.style.fontWeight = 'bold';
                 cellTimeRange.style.color = '#ff9800';
@@ -488,14 +534,84 @@ document.addEventListener('DOMContentLoaded', () => {
                 cellTimeRange.style.borderRadius = '4px';
                 cellTimeRange.style.padding = '4px 8px';
             } else {
-                // Normal time range calculation
-                const startTime = index === 0 ? '07:00' : formatTime(pointTimes[sortedIndices[index - 1]]);
-                const endTime = formatTime(currentTime);
-                cellTimeRange.textContent = `${startTime} - ${endTime}`;
-                cellTimeRange.style.fontWeight = 'normal';
-                cellTimeRange.style.color = 'inherit';
-                cellTimeRange.style.backgroundColor = 'transparent';
-                cellTimeRange.style.padding = 'inherit';
+                // Create editable time range inputs
+                const timeRangeContainer = document.createElement('div');
+                timeRangeContainer.style.display = 'flex';
+                timeRangeContainer.style.alignItems = 'center';
+                timeRangeContainer.style.gap = '5px';
+                
+                // Calculate start and end times with simplified logic
+                let startTime = '07:00';
+                let endTime = '07:00';
+                
+                if (index === 0) {
+                    startTime = '07:00';
+                } else {
+                    // Get the time from previous row in sorted order
+                    const previousPointIndex = sortedIndices[index - 1];
+                    if (previousPointIndex !== undefined) {
+                        const previousPoint = points[previousPointIndex];
+                        if (previousPoint) {
+                            const previousLeft = parseFloat(previousPoint.style.left || '0');
+                            const previousPercentage = Math.max(0, Math.min(100, previousLeft));
+                            const previousTime = MIN_HOUR + (previousPercentage / 100 * HOUR_RANGE);
+                            startTime = formatTime(previousTime);
+                        }
+                    }
+                }
+                
+                // Calculate end time from current point
+                if (currentTime !== undefined && !isNaN(currentTime)) {
+                    endTime = formatTime(currentTime);
+                }
+                
+                // Start time input
+                const startTimeInput = document.createElement('input');
+                startTimeInput.type = 'time';
+                startTimeInput.value = startTime || '07:00'; // Ensure fallback
+                startTimeInput.min = '07:00';
+                startTimeInput.max = '17:30';
+                startTimeInput.style.width = '80px';
+                startTimeInput.style.fontSize = '12px';
+                startTimeInput.style.border = '1px solid #ddd';
+                startTimeInput.style.borderRadius = '3px';
+                startTimeInput.style.padding = '2px 4px';
+                
+
+                
+                // Dash separator
+                const separator = document.createElement('span');
+                separator.textContent = '-';
+                separator.style.fontWeight = 'bold';
+                
+                // End time input
+                const endTimeInput = document.createElement('input');
+                endTimeInput.type = 'time';
+                endTimeInput.value = endTime || '07:00'; // Ensure fallback
+                endTimeInput.min = '07:00';
+                endTimeInput.max = '17:30';
+                endTimeInput.style.width = '80px';
+                endTimeInput.style.fontSize = '12px';
+                endTimeInput.style.border = '1px solid #ddd';
+                endTimeInput.style.borderRadius = '3px';
+                endTimeInput.style.padding = '2px 4px';
+                
+
+                
+                // Add event listeners for time changes
+                startTimeInput.addEventListener('change', (e) => {
+                    updatePointFromTimeInput(pointIndex, index, 'start', e.target.value, sortedIndices);
+                });
+                
+                endTimeInput.addEventListener('change', (e) => {
+                    updatePointFromTimeInput(pointIndex, index, 'end', e.target.value, sortedIndices);
+                });
+                
+                timeRangeContainer.appendChild(startTimeInput);
+                timeRangeContainer.appendChild(separator);
+                timeRangeContainer.appendChild(endTimeInput);
+                
+                cellTimeRange.appendChild(timeRangeContainer);
             }
             
             row.appendChild(cellTimeRange);
@@ -512,13 +628,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 cellDuration.style.borderRadius = '4px';
                 cellDuration.style.padding = '4px 8px';
             } else {
-                // Normal duration calculation
-                const durationFormatted = formatMinutesToTime(durationMinutes);
-                cellDuration.textContent = durationFormatted;
-                cellDuration.style.fontWeight = 'normal';
-                cellDuration.style.color = 'inherit';
-                cellDuration.style.backgroundColor = 'transparent';
-                cellDuration.style.padding = 'inherit';
+                // Create editable duration input
+                const durationInput = document.createElement('input');
+                durationInput.type = 'time';
+                durationInput.value = formatMinutesToTime(durationMinutes);
+                durationInput.min = '00:01';
+                durationInput.max = '10:30';
+                durationInput.style.width = '80px';
+                durationInput.style.fontSize = '12px';
+                durationInput.style.border = '1px solid #ddd';
+                durationInput.style.borderRadius = '3px';
+                durationInput.style.padding = '2px 4px';
+                
+                // Add event listener for duration changes
+                durationInput.addEventListener('change', (e) => {
+                    updatePointFromDurationInput(pointIndex, index, e.target.value, sortedIndices);
+                });
+                
+                cellDuration.appendChild(durationInput);
             }
             
             // Apply the saved red state if it exists
@@ -580,6 +707,123 @@ document.addEventListener('DOMContentLoaded', () => {
         const startMinutes = timeStringToMinutes(startTime);
         const endMinutes = timeStringToMinutes(endTime);
         return endMinutes - startMinutes;
+    }
+
+    // Function to convert time string to decimal hours
+    function timeStringToDecimalHours(timeString) {
+        const [hours, minutes] = timeString.split(':').map(Number);
+        return hours + (minutes / 60);
+    }
+
+    // Function to convert decimal hours to percentage position on bar
+    function timeToPercentage(timeDecimal) {
+        if (timeDecimal < MIN_HOUR) timeDecimal = MIN_HOUR;
+        if (timeDecimal > MAX_HOUR) timeDecimal = MAX_HOUR;
+        return ((timeDecimal - MIN_HOUR) / HOUR_RANGE) * 100;
+    }
+
+    // Function to update point position from time input
+    function updatePointFromTimeInput(pointIndex, rowIndex, inputType, newTimeValue, sortedIndices) {
+        console.log(`Updating ${inputType} time for point ${pointIndex} to ${newTimeValue}`);
+        
+        // Convert time to decimal hours
+        const newTimeDecimal = timeStringToDecimalHours(newTimeValue);
+        
+        // Validate time range
+        if (newTimeDecimal < MIN_HOUR || newTimeDecimal > MAX_HOUR) {
+            alert(`Waktu harus antara ${MIN_HOUR}:00 dan ${Math.floor(MAX_HOUR)}:${(MAX_HOUR % 1) * 60 || '00'}`);
+            updateTable(); // Reset input to current value
+            return;
+        }
+        
+        if (inputType === 'end') {
+            // Update the current point's position
+            const newPercentage = timeToPercentage(newTimeDecimal);
+            points[pointIndex].style.left = `${newPercentage}%`;
+            
+            // Cancel lunch break if this point is moved
+            if (lunchBreakStates[pointIndex]) {
+                lunchBreakStates[pointIndex] = false;
+                resetLunchBreakStyling(pointIndex);
+            }
+            
+        } else if (inputType === 'start' && rowIndex > 0) {
+            // Update the previous point's position
+            const previousPointIndex = sortedIndices[rowIndex - 1];
+            const newPercentage = timeToPercentage(newTimeDecimal);
+            points[previousPointIndex].style.left = `${newPercentage}%`;
+            
+            // Cancel lunch break if this point is moved
+            if (lunchBreakStates[previousPointIndex]) {
+                lunchBreakStates[previousPointIndex] = false;
+                resetLunchBreakStyling(previousPointIndex);
+            }
+        }
+        
+        // Update displays
+        updateBarColor();
+        updateValueDisplay();
+        updateTable();
+    }
+
+    // Function to update point position from duration input
+    function updatePointFromDurationInput(pointIndex, rowIndex, newDurationValue, sortedIndices) {
+        console.log(`Updating duration for point ${pointIndex} to ${newDurationValue}`);
+        
+        // Convert duration to minutes
+        const durationMinutes = timeStringToMinutes(newDurationValue);
+        
+        // Validate duration (should be positive and reasonable)
+        if (durationMinutes <= 0) {
+            alert('Durasi harus lebih dari 0 menit');
+            updateTable(); // Reset input to current value
+            return;
+        }
+        
+        if (durationMinutes > 12 * 60) {
+            alert('Durasi maksimal adalah 12 jam');
+            updateTable(); // Reset input to current value
+            return;
+        }
+        
+        // Calculate new end time based on duration
+        let startTimeDecimal;
+        
+        if (rowIndex === 0) {
+            // First point: start time is MIN_HOUR (7:00)
+            startTimeDecimal = MIN_HOUR;
+        } else {
+            // Other points: get start time from previous point
+            const previousPointIndex = sortedIndices[rowIndex - 1];
+            const previousLeft = parseFloat(points[previousPointIndex].style.left || getComputedStyle(points[previousPointIndex]).left);
+            const previousPercentage = Math.max(0, Math.min(100, parseFloat(previousLeft)));
+            startTimeDecimal = MIN_HOUR + (previousPercentage / 100 * HOUR_RANGE);
+        }
+        
+        // Calculate new end time
+        const newEndTimeDecimal = startTimeDecimal + (durationMinutes / 60);
+        
+        // Validate end time
+        if (newEndTimeDecimal > MAX_HOUR) {
+            alert(`Waktu berakhir tidak boleh melebihi ${Math.floor(MAX_HOUR)}:${(MAX_HOUR % 1) * 60 || '00'}`);
+            updateTable(); // Reset input to current value
+            return;
+        }
+        
+        // Update point position
+        const newPercentage = timeToPercentage(newEndTimeDecimal);
+        points[pointIndex].style.left = `${newPercentage}%`;
+        
+        // Cancel lunch break if this point is moved
+        if (lunchBreakStates[pointIndex]) {
+            lunchBreakStates[pointIndex] = false;
+            resetLunchBreakStyling(pointIndex);
+        }
+        
+        // Update displays
+        updateBarColor();
+        updateValueDisplay();
+        updateTable();
     }
 
     // Function to export data to clipboard

@@ -224,6 +224,27 @@ td input:focus, td textarea:focus {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
+/* Styling for time inputs */
+input[type="time"] {
+    font-family: inherit !important;
+    background: white !important;
+    transition: border-color 0.2s ease;
+    width: 80px !important;
+    font-size: 12px !important;
+    padding: 2px 4px !important;
+    min-height: auto !important;
+}
+
+input[type="time"]:focus {
+    outline: none;
+    border-color: #3498db !important;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+input[type="time"]:hover {
+    border-color: #bbb !important;
+}
+
 /* Button styles */
 .controls {
     display: flex;
